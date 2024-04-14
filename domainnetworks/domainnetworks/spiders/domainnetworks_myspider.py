@@ -8,7 +8,7 @@ class YourSpider(scrapy.Spider):
     name = 'myspider'
     custom_settings = {
         'FEEDS': {
-            'domainnetworks2.json': {
+            'Illinois.json': {
                 'format': 'json',
                 'overwrite': True,
             },
@@ -17,6 +17,7 @@ class YourSpider(scrapy.Spider):
 
     def start_requests(self):
         url = 'https://domainnetworks.com/elasticsearch/search'
+        url2='https://domainnetworks.com/elasticsearch/msearch'
         with open('payloads.json', 'r') as file:
             data = json.load(file)
         headers = {
@@ -43,16 +44,51 @@ class YourSpider(scrapy.Spider):
         }
 
         for payload in data:
+            if payload['msearch']==True:
+                yield scrapy.Request(
+                    url2,
+                    method='POST',
+                    headers=headers,
+                    body=json.dumps(payload),
+                    callback=self.parse2,
+                    dont_filter=True
 
-            yield scrapy.Request(
-                url,
-                method='POST',
-                headers=headers,
-                body=json.dumps(payload),
-                callback=self.parse,
-                dont_filter=True
+                )
+            else:
+                yield scrapy.Request(
+                    url,
+                    method='POST',
+                    headers=headers,
+                    body=json.dumps(payload),
+                    callback=self.parse,
+                    dont_filter=True
 
-            )
+                )
+
+
+    def parse2(self, response):
+        # _data=json.loads(response.text)
+        data={}
+
+        Json_data = json.loads(response.text)
+        json_data = Json_data['responses'][0]['hits']['hits']
+        print(len(json_data))
+        for dat in json_data:
+            print(dat)
+            if dat['_source'].get('name_text') is not None:
+               data['Company Name'] = dat['_source'].get('name_text', '')
+
+               if dat['_source'].get('website_text', '') != '':
+                   data['Website Url'] =f"https://{dat['_source'].get('website_text', '')}/"
+
+
+               data['phone_text']=dat['_source'].get('phone_text', '') if '_source' in dat and 'phone_text' in dat['_source'] else ''
+               data['Address']=dat['_source'].get('street_text', '') if '_source' in dat and 'street_text' in dat['_source'] else ''
+               data['City']=dat['_source'].get('city_text', '') if '_source' in dat and 'city_text' in dat['_source'] else '',
+               data['State']=dat['_source'].get('state_text', '') if '_source' in dat and 'state_text' in dat['_source'] else '',
+               data['Postal Code']=dat['_source'].get('postal_code_text', '') if '_source' in dat and 'postal_code_text' in dat['_source'] else '',
+               data['Url'] = f"https://domainnetworks.com/business-listing/{dat['_source']['bid_text']}" if '_source' in dat and 'bid_text' in  dat['_source'] else ''
+               yield data
 
     def parse(self, response):
         # _data=json.loads(response.text)
