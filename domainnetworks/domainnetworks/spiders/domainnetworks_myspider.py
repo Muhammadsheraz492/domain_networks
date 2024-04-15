@@ -8,7 +8,7 @@ class YourSpider(scrapy.Spider):
     name = 'myspider'
     custom_settings = {
         'FEEDS': {
-            'Illinois.json': {
+            'Virginia.json': {
                 'format': 'json',
                 'overwrite': True,
             },
